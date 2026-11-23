@@ -1,5 +1,7 @@
-# Using Node.js 16 as the base image
-FROM node:16
+# ---------- Stage 1: Build the React app ----------
+
+# Using Node.js 18 (Alpine) as the build image
+FROM node:18-alpine AS build
 
 # Setting up the working directory
 WORKDIR /app
@@ -7,17 +9,26 @@ WORKDIR /app
 # Copying the package.json and package-lock.json files to the working directory
 COPY package*.json ./
 
-# Installation of npm dependency
+# Installation of npm dependencies
 RUN npm install
 
 # Copy the application code
 COPY . .
 
-# Buildinf of the React app
+# Building the React app (creates the /app/build folder)
 RUN npm run build
 
-# Expose port 3000 to access app
-EXPOSE 3000
 
-# Start your Node.js server
-CMD ["npm", "start"]
+# ---------- Stage 2: Serve the app with Nginx ----------
+
+# Using lightweight Nginx (Alpine) as the final image
+FROM nginx:alpine
+
+# Copy the built React files from Stage 1 into the Nginx web folder
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Expose port 80 to access the app
+EXPOSE 80
+
+# Start Nginx in the foreground so the container keeps running
+CMD ["nginx", "-g", "daemon off;"]
